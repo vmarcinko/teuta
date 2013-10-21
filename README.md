@@ -6,7 +6,7 @@
 
 If you like to give more structure to your Clojure applications, and you feel some component container utilizing dependency injection a-la [Spring](http://projects.spring.io/spring-framework/) would help you with that, and all you want is something *simple that just works*, then Teuta may be just a library for you.
 
-## The features
+## What's in there?
  * Ultra-lightweight **all-Clojure** library
  * Simple map-based declarative way to specify components and their dependecies; no arcane XML!
  * Simple map-based parametrization of your system configuration
@@ -24,7 +24,7 @@ Teuta is *component* container, so one can wonder what a *component* means? It i
  * can be configured externally
  * can be wired externally to other components
 
-The purpose of componentization is to give some structure to our applications, so one can reason about the system more easily. Clojure language construct that is most suitable for defining a component is probably a record, 
+The purpose of componentization is to give some structure to our applications, so one can comprehend them more easily. Clojure language construct that is most suitable for defining a component is probably a record,
 although some other constructs can be also used to make a component, so Teuta doesn't impose any hard constraints about that as you will soon see.
 
 ### Library Dependencies
@@ -38,9 +38,9 @@ Add the necessary dependency to your [Leiningen](http://leiningen.org/) `project
 ```
 ### Container Specification
 
-Anyway, to create a component container, we have to start by defining a specification, and it is simply a map of entries - [component-id component-specification].
+Anyway, to create a component container, we have to start by defining a specification, and it is simply a map of entries *[component-id component-specification]*.
 
-Component ID is usually a keyword, though String or some other value can be used. Component specification is vector of [component-factory-fn & args], so a component can be constructed later, during container construction time, 
+Component ID is usually a keyword, though String or some other value can be used. Component specification is vector of *[component-factory-fn & args]*, so a component can be constructed later, during container construction time,
 by evaluating factory function with given arguments. So you see, this is just an ordinary function, and a component can be constructed in any arbitrary way, though maybe most usual way 
 would be to use records and their map factory functions which are very descriptive.
 
@@ -95,7 +95,7 @@ Once we have our specification, we can simply create a container by calling
 ```clojure
 (def my-container (teuta/create-container my-specification my-parameters))
 ```
-The container is just a sorted map of [component-id component] entries.
+The container is just a sorted map of *[component-id component]* entries.
 When the container map is printed, in order to make it a bit more clear, referred components will be printed as << component *some-comp-id* >>.
 
 ### Logging
@@ -113,10 +113,10 @@ Here we define 2 components - **divider** and **alarmer**.
 (defprotocol Divider
   (divide [this n1 n2] "Divides 2 numbers and returns vector [:ok result]. In case of error, [:error "Some error description"] will be returned"))
 ```
-Unlike here, component interfaces will mostly contain multiple related functions. 
+Unlike this example, component interfaces will mostly contain multiple related functions.
 
 Request-handler components, such as web handlers, usually don't have a working interface since we don't "pull" them for some functionality, 
-they just need to be started and stopped by container, thus they just implement Lifecycle protocol.
+they just need to be started and stopped by container, thus implement Lifecycle protocol.
 
 Default implementation of our divider component will naturally return the result of dividing the numbers, but in case of division by zero, it will also send notification about the thing to alarmer component. 
 Placing component implementation in separate namespace is just a nice way of separating component interface and implementation.
@@ -252,7 +252,7 @@ Let's expand our specification to wire this new component.
                      :divider (teuta/comp-ref :my-divider)
                      :server (atom nil)}]})
 ```
-Now, after tha container has been started, we can try out HTTP request:
+Now, after the container has been started, we can try out HTTP request:
 
 [http://localhost:3500?arg1=3&arg2=44](http://localhost:3500?arg1=3&arg2=44)
 
