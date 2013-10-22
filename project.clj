@@ -1,4 +1,4 @@
-(defproject vmarcinko/teuta "0.1.0-SNAPSHOT"
+(defproject vmarcinko/teuta "0.1.0"
   :description "Laughingly simple dependency injection container in Clojure"
   :url "https://github.com/vmarcinko/teuta"
   :license {:name "Eclipse Public License"

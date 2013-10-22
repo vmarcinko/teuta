@@ -76,9 +76,7 @@
 (defn- create-component [parameters container container-spec-entry]
   (let [[component-id [factory-fn & factory-args]] container-spec-entry
         replace-factory-args-fn (create-replace-factory-args-fn parameters container)
-;       original (doseq [x factory-args] (println "Original" x))
         replaced-factory-args (walk/prewalk replace-factory-args-fn factory-args)
-;        replaced (doseq [x replaced-factory-args] (println "Replaced" x " with meta:" (meta x)))
         component (apply factory-fn replaced-factory-args)]
     (assoc container component-id component)))
 

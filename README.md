@@ -21,7 +21,7 @@ Teuta is *component* container, so one can wonder what a *component* means? It i
 
  * groups related functions (similar to namespace)
  * can have a lifecycle
- * can be configured externally
+ * can be configured
  * can be wired externally to other components
 
 The purpose of componentization is to give some structure to our applications, so one can comprehend them more easily. Clojure language construct that is most suitable for defining a component is probably a record,
@@ -57,24 +57,39 @@ Similarly, if we want to parametrize some piece of component configuration, then
 
 So, specification would look something like:
 ```clojure
-(def my-specification {:my-comp-1 [mycompany.myapp/map->MyComp1Record {
-									:my-param-1 "Some string"
-									:my-param-2 334
-									:my-param-3 (teuta/param-ref :comp-1-settings :some-remote-URL)
-									:comp2-param (teuta/comp-ref :my-comp-2)}]
-					   :my-comp-2 [mycompany.myapp/map->MyComp1Record {
-									:my-param-1 6161
-									:my-param-2 (atom nil)
-									:my-param-3 (teuta/param-ref :comp-2-settings :admin-email)}]})
+(def my-specification {:my-comp-1 [mycompany.myapp/map->MyComp1Record 
+								   {:my-prop-1  "Some string"
+									:my-prop-2  334
+									:my-prop-3  (teuta/param-ref :comp-1-settings :some-remote-URL)
+									:comp2-prop (teuta/comp-ref :my-comp-2)}]
+					   :my-comp-2 [mycompany.myapp/map->MyComp2Record 
+								   {:my-prop-1 6161
+									:my-prop-2 (atom nil)
+									:my-prop-3 (teuta/param-ref :comp-2-settings :admin-email)}]})
 ```
 
 Since whole specification is simply a regular map, it is useful to have some common map containing always present components, and have separate profile-specific maps with components for production, test, development...
 That way you simply merge those maps together to construct desired final specification.
 
+### Container Construction
+
+Once we have our specification, we can simply create a container by calling
+
+```clojure
+(def my-container (teuta/create-container my-specification my-parameters))
+```
+The container is just a sorted map of *[component-id component]* entries.
+When the container map is printed, in order to make it a bit more clear, referred components will be printed as << component *some-comp-id* >>.
+
 ### Component Lifecycle
 
 If a component's functions depend upon some side-effecting logic being executed prior to using them, then a component can implement 
 *vmarcinko.teuta/Lifecycle* protocol. The protocol combines *start* and *stop* functions which will get called during starting and stopping of a container.
+```clojure
+(defprotocol Lifecycle
+  (start [this] "Starts the component. Returns nil.")
+  (stop [this] "Stops the component. Returns nil."))
+```
 
 Container is started by:
 ```clojure
@@ -87,16 +102,6 @@ Likewise, stopping of container is done via:
 (teuta/stop-container my-container)
 ```
 If any component raises exception during this process, the exception will be logged and the process will continue with other components.
-
-### Container Construction
-
-Once we have our specification, we can simply create a container by calling
-
-```clojure
-(def my-container (teuta/create-container my-specification my-parameters))
-```
-The container is just a sorted map of *[component-id component]* entries.
-When the container map is printed, in order to make it a bit more clear, referred components will be printed as << component *some-comp-id* >>.
 
 ### Logging
 
@@ -111,14 +116,17 @@ Here we define 2 components - **divider** and **alarmer**.
 (ns vmarcinko.teutaexample.divider)
 
 (defprotocol Divider
-  (divide [this n1 n2] "Divides 2 numbers and returns vector [:ok result]. In case of error, [:error "Some error description"] will be returned"))
+  (divide [this n1 n2] 
+  "Divides 2 numbers and returns vector [:ok result]. 
+  In case of error, [:error \"Some error description\"] will be returned"))
 ```
 Unlike this example, component interfaces will mostly contain multiple related functions.
 
 Request-handler components, such as web handlers, usually don't have a working interface since we don't "pull" them for some functionality, 
 they just need to be started and stopped by container, thus implement Lifecycle protocol.
 
-Default implementation of our divider component will naturally return the result of dividing the numbers, but in case of division by zero, it will also send notification about the thing to alarmer component. 
+Default implementation of our divider component will naturally return the result of dividing the numbers, but in case of division by zero, 
+it will also send notification about the thing to alarmer component (by calling *vmarcinko.teutaexample.alarmer/raise-alarm* function). 
 Placing component implementation in separate namespace is just a nice way of separating component interface and implementation.
 ```clojure
 (ns vmarcinko.teutaexample.divider-impl
@@ -127,7 +135,6 @@ Placing component implementation in separate namespace is just a nice way of sep
             [vmarcinko.teuta :as teuta]))
 
 (defrecord DefaultDividerImpl [alarmer division-by-zero-alarm-text]
-
   divider/Divider
   (divide [_ n1 n2]
     (if (= n2 0)
@@ -153,12 +160,10 @@ It also prints alarm count, which is mutable state of this component, and is hel
             [vmarcinko.teuta :as teuta]))
 
 (defrecord DefaultAlarmerImpl [notification-emails alarm-count]
-
   alarmer/Alarmer
   (raise-alarm [_ description]
     (let [new-alarm-count (swap! alarm-count inc)]
       (println (str "Alarm Nr." new-alarm-count " raised: '" description "'; notifying emails: " notification-emails))))
-
   teuta/Lifecycle
   (start [_]
     (reset! alarm-count 0))
@@ -190,11 +195,16 @@ Now we can constract the container, start it and try out dividing 2 numbers via 
 
 (vmarcinko.teutaexample.divider/divide (:my-divider my-container) 3 44)
 => [:ok 3/44]
+
+(vmarcinko.teutaexample.divider/divide (:my-divider my-container) 3 0)
+=> Alarm Nr.1 raised: 'Arghhh, somebody tried to divide with zero!'; notifying emails: ["admin1@mycompany.com" "admin2@mycompany.com"]
+=> [:error "Division by zero error"]
 ```
 
-In order to call divide function of Divider protocol "from outside", we needed to pick divider component from the container first.
-But if request-handling piece of application is also a component in container, as could be the case with some web handler serving HTTP requests to our Divider/divide function,
-then container specification will handle wiring specified divider component. Let's create such a **web handler** component using popular Jetty web server:
+In order to call *vmarcinko.teutaexample.divider/divide* function "from outside", we needed to pick divider component from the container first.
+But if request-handling piece of application is also a component in container, as could be the case with some web handler serving HTTP requests 
+to our *vmarcinko.teutaexample.divider/divide* function, then container specification will handle wiring specified divider component. 
+Let's create such a **web handler** component using popular Jetty web server:
 
 ```clojure
 (ns vmarcinko.teutaexample.web-handler
@@ -219,20 +229,18 @@ then container specification will handle wiring specified divider component. Let
 
 (defrecord DefaultWebHandler [port divider server]
   teuta/Lifecycle
-  
   (start [this]
     (reset! server
       (let [handler (->> (create-handler divider)
                          ring-params/wrap-params
                          ignore-favicon)]
         (jetty/run-jetty handler {:port port :join? false}))))
-
   (stop [this]
     (.stop @server)
     (reset! server nil)))
 ```
 Jetty server is held in an atom, and is started on configured port during lifecycle start phase. As can be seen, divider component is the only dependency of this component, 
-and request URL parameters "arg1" and "arg2" are passed as arguments to Divider/divide function. We added also favicon request ignoring handler to simplify testing it via browser.
+and request URL parameters "arg1" and "arg2" are passed as arguments to *vmarcinko.teutaexample.divider/divide* function. We added also favicon request ignoring handler to simplify testing it via browser.
 This component requires popular [Ring](https://github.com/ring-clojure/ring) library, so one needs to add that to project.clj as:
 ```clojure
 :dependencies [[ring/ring-core "1.2.0"]
