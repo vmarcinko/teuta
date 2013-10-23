@@ -44,7 +44,7 @@ Component ID is usually a keyword, though String or some other value can be used
 by evaluating factory function with given arguments. So you see, this is just an ordinary function, and a component can be constructed in any arbitrary way, though maybe most usual way 
 would be to use records and their map factory functions which are very descriptive.
 
-If a component depends upon some other component, then it should be configured to use it. Refering to other components is done via
+If a component depends upon some other component, then it should be configured to use it. Referring to other components is done via
 ```clojure
 (teuta/comp-ref some-comp-id)
 ```
@@ -187,9 +187,9 @@ So let's finally create container specification and wire these 2 components. We 
                  :alarm-count 			(atom nil)}]})
 ```
 
-Now we can constract the container, start it and try out dividing 2 numbers via divider component.
+Now we can construct the container, start it and try out dividing 2 numbers via divider component.
 ```clojure
-(def my-container (teuta/create-container my-specification))
+(def my-container (teuta/create-container my-specification my-parameters))
 
 (teuta/start-container my-container)
 
@@ -262,7 +262,7 @@ Let's expand our specification to wire this new component.
 ```
 Now, after the container has been started, we can try out HTTP request:
 
-[http://localhost:3500?arg1=3&arg2=44](http://localhost:3500?arg1=3&arg2=44)
+http://localhost:3500?arg1=3&arg2=44
 
 Division result should be returned as HTML response. Division with zero should print tha alarming message to REPL output.
 
